@@ -21,6 +21,7 @@
 #include "cmsis_os.h"
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
+uint8_t SPI_Read_Register(uint8_t reg_addr);
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -65,20 +66,25 @@ const osThreadAttr_t TempTask_attributes = {
 /* USER CODE BEGIN PV */
 
 // Gyroscope variables (taken from Oppgave 4, with minor changes)
+/* CTRL Register variables */
 uint8_t CTRL_REG1_addr = 0x20; // CTRL_REG1 address
 uint8_t CTRL_REG1_val = 0x0F; // Value to write to CTRL_REG1 to configure gyroscope
 /* X-axis variables */
-uint8_t rOUT_X_L_addr = 0xA8; // Address for the lower 8 bits of the X-axis data + read operation
-uint8_t rOUT_X_H_addr = 0xA9; // Address for the upper 8 bits of the X-axis data + read operation
+uint8_t OUT_X_L_addr = 0x28; // Address for the lower 8 bits of the X-axis data
+uint8_t OUT_X_H_addr = 0x29; // Address for the upper 8 bits of the X-axis data
 uint8_t x_lsb; // Low bytes
 uint8_t x_msb; // High bytes
 int16_t x_val; // Combine high and low bytes
 /* Y-axis variables */
-uint8_t rOUT_Y_L_addr = 0xAA; // Address for the lower 8 bits of the Y-axis data + read operation
-uint8_t rOUT_Y_H_addr = 0xAB; // Address for the upper 8 bits of the Y-axis data + read operation
+uint8_t OUT_Y_L_addr = 0x2A; // Address for the lower 8 bits of the Y-axis data
+uint8_t OUT_Y_H_addr = 0x2B; // Address for the upper 8 bits of the Y-axis data
 uint8_t y_lsb; // Low bytes
 uint8_t y_msb; // High bytes
 int16_t y_val; // Combine high and low bytes
+/* SPI_Read_Register variables */
+uint8_t reg_addr;
+uint8_t rx_data;
+uint8_t tx_data;
 
 // Temperature sensor variables (taken from Oppgave 3, with minor changes)
 static const uint8_t TMP102_addr = 0x48 << 1; // TMP102 sensor address
@@ -138,6 +144,7 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   MX_SPI1_Init();
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -344,6 +351,19 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+uint8_t SPI_Read_Register(uint8_t reg_addr)
+{
+	rx_data = 0;
+	tx_data = reg_addr | 0x80; // Read from register
+
+	HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET); // Set CS low
+	HAL_SPI_Transmit(&hspi1, &tx_data, 1, HAL_MAX_DELAY); // Transmit register address
+	HAL_SPI_Receive(&hspi1, &rx_data, 1, HAL_MAX_DELAY); // Receive data from register
+	HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_SET); // Set CS high
+
+	return rx_data;
+}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartGyroTask */
@@ -356,7 +376,7 @@ static void MX_GPIO_Init(void)
 void StartGyroTask(void *argument)
 {
   /* init code for USB_DEVICE */
-  MX_USB_DEVICE_Init();
+  //MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 5 */
 
   // Configure built-in gyroscope
@@ -369,9 +389,26 @@ void StartGyroTask(void *argument)
   for(;;)
   {
 	  /* Code taken from Oppgave 4, with a few changes */
+	  // Read data from x-axis
+	  x_lsb = SPI_Read_Register(OUT_X_L_addr);
+	  x_msb = SPI_Read_Register(OUT_X_H_addr);
 
-	  HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
-    osDelay(1);
+	  // Combine x_msb and x_lsb
+	  x_val = ((uint16_t) x_msb << 8) | ((uint16_t) x_lsb);
+
+	  // Read data from y-axis
+	  y_lsb = SPI_Read_Register(OUT_Y_L_addr);
+	  y_msb = SPI_Read_Register(OUT_Y_H_addr);
+
+	  // Combine y_msb and y_lsb
+	  y_val = ((uint16_t) y_msb << 8) | ((uint16_t) y_lsb);
+
+	  // Send the temperature data over USB
+	  char gyro_str[50];
+	  sprintf(gyro_str, "X: %d, Y: %d\r\n", x_val, y_val);
+	  CDC_Transmit_FS((uint8_t*)gyro_str, strlen(gyro_str));
+
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -406,11 +443,11 @@ void StartTempTask(void *argument)
 			  temp_raw = ((int16_t)temp_buf[0] << 4) | (temp_buf[1] >> 4);
 			  // Convert raw value to a temperature in Celsius
 			  temperature = temp_raw * 0.0625f;
-			  // Format the temperature as a string
-			  char temp_str[50];
-			  int len = sprintf(temp_str, "Temperature: %.2f°C\r\n", temperature);
+
 			  // Send the temperature data over USB
-			  CDC_Transmit_FS((uint8_t*)temp_str, len);
+			  char temp_str[50];
+			  sprintf(temp_str, "Temperature: %.2f°C\r\n", temperature);
+			  CDC_Transmit_FS((uint8_t*)temp_str, strlen(temp_str));
 
 		  } else {
 
