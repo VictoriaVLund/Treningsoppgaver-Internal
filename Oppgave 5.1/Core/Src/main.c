@@ -20,6 +20,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "usb_device.h"
+#include "usbd_cdc_if.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -60,7 +61,32 @@ const osThreadAttr_t TempTask_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
+
 /* USER CODE BEGIN PV */
+
+// Gyroscope variables (taken from Oppgave 4, with minor changes)
+uint8_t CTRL_REG1_addr = 0x20; // CTRL_REG1 address
+uint8_t CTRL_REG1_val = 0x0F; // Value to write to CTRL_REG1 to configure gyroscope
+/* X-axis variables */
+uint8_t rOUT_X_L_addr = 0xA8; // Address for the lower 8 bits of the X-axis data + read operation
+uint8_t rOUT_X_H_addr = 0xA9; // Address for the upper 8 bits of the X-axis data + read operation
+uint8_t x_lsb; // Low bytes
+uint8_t x_msb; // High bytes
+int16_t x_val; // Combine high and low bytes
+/* Y-axis variables */
+uint8_t rOUT_Y_L_addr = 0xAA; // Address for the lower 8 bits of the Y-axis data + read operation
+uint8_t rOUT_Y_H_addr = 0xAB; // Address for the upper 8 bits of the Y-axis data + read operation
+uint8_t y_lsb; // Low bytes
+uint8_t y_msb; // High bytes
+int16_t y_val; // Combine high and low bytes
+
+// Temperature sensor variables (taken from Oppgave 3, with minor changes)
+static const uint8_t TMP102_addr = 0x48 << 1; // TMP102 sensor address
+static const uint8_t TMP102_TEMP_REG = 0x00; // Temperature register address
+uint8_t temp_buf[2]; // Array to store the parameter sent and data received
+HAL_StatusTypeDef status; // Status of I2C communication
+int16_t temp_raw; // Variable to store raw 12-bit temperature
+float temperature; // Variable to store converted temperature
 
 /* USER CODE END PV */
 
@@ -332,9 +358,19 @@ void StartGyroTask(void *argument)
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 5 */
+
+  // Configure built-in gyroscope
+  HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET); // Set CS low
+  HAL_SPI_Transmit(&hspi1, &CTRL_REG1_addr, 1, HAL_MAX_DELAY); // Send CTRL_REG1 address 0x20
+  HAL_SPI_Transmit(&hspi1, &CTRL_REG1_val, 1, HAL_MAX_DELAY); // Send configure value 0x0F
+  HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_SET); // Set CS high
+
   /* Infinite loop */
   for(;;)
   {
+	  /* Code taken from Oppgave 4, with a few changes */
+
+	  HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
     osDelay(1);
   }
   /* USER CODE END 5 */
@@ -353,7 +389,37 @@ void StartTempTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  /* Code taken from Oppgave 3, with a few changes */
+
+	  // Sending read request for temperature data to temperature sensor
+	  temp_buf[0] = TMP102_TEMP_REG;
+	  status = HAL_I2C_Master_Transmit(&hi2c1, TMP102_addr, temp_buf, 1, HAL_MAX_DELAY);
+
+	  // Check status of transmission
+	  if (status == HAL_OK){
+		  // Receive temperature data
+		  status = HAL_I2C_Master_Receive(&hi2c1, TMP102_addr, temp_buf, 2, HAL_MAX_DELAY);
+
+		  // Check status of receive
+		  if (status == HAL_OK){
+			  // Combine the MSB and LSB from the buffer, and isolate the first 12 bits to get the raw temperature value
+			  temp_raw = ((int16_t)temp_buf[0] << 4) | (temp_buf[1] >> 4);
+			  // Convert raw value to a temperature in Celsius
+			  temperature = temp_raw * 0.0625f;
+			  // Format the temperature as a string
+			  char temp_str[50];
+			  int len = sprintf(temp_str, "Temperature: %.2f°C\r\n", temperature);
+			  // Send the temperature data over USB
+			  CDC_Transmit_FS((uint8_t*)temp_str, len);
+
+		  } else {
+
+		  }
+
+	  } else {
+
+	  }
+    osDelay(100);
   }
   /* USER CODE END StartTempTask */
 }
