@@ -19,7 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
-#include "usbd_cdc_if.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -46,20 +45,20 @@ I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
 
-// TMP102 sensor address, shifted 1 bit to left because slave address is 7 bits (DevAddress)
-static const uint8_t TMP102_addr = 0x48 << 1;
-
-// Temperature register address, 'buffer[0]' is set to this value (*pData)
-static const uint8_t TMP102_TEMP_REG = 0x00;
-
-// Timeout delay
-uint32_t delay = HAL_MAX_DELAY;
-
-// LED port
-GPIO_TypeDef* LED_Port = GPIOD;
-
-// LED Pin
-uint16_t LED_Pin = GPIO_PIN_14;
+//// TMP102 sensor address, shifted 1 bit to left because slave address is 7 bits (DevAddress)
+//static const uint8_t TMP102_addr = 0x48 << 1;
+//
+//// Temperature register address, 'buffer[0]' is set to this value (*pData)
+//static const uint8_t TMP102_TEMP_REG = 0x00;
+//
+//// Timeout delay
+//uint32_t delay = HAL_MAX_DELAY;
+//
+//// LED port
+//GPIO_TypeDef* LED_Port = GPIOD;
+//
+//// LED Pin
+//uint16_t LED_Pin = GPIO_PIN_14;
 
 /* USER CODE END PV */
 
@@ -84,6 +83,21 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+
+	// TMP102 sensor address, shifted 1 bit to left because slave address is 7 bits (DevAddress)
+	static const uint8_t TMP102_addr = 0x48 << 1;
+
+	// Temperature register address, 'buffer[0]' is set to this value (*pData)
+	static const uint8_t TMP102_TEMP_REG = 0x00;
+
+	// Timeout delay
+	uint32_t delay = HAL_MAX_DELAY;
+
+	// LED port
+	GPIO_TypeDef* LED_Port = GPIOD;
+
+	// LED Pin
+	uint16_t LED_Pin = GPIO_PIN_14;
 
 	// Array to store the parameter sent and data received, 2 bytes big (*pData)
 	uint8_t buffer[2];
@@ -132,7 +146,7 @@ int main(void)
 	  buffer[0] = TMP102_TEMP_REG;
 
 	  // Transmit register pointer to the sensor
-	  status = HAL_I2C_Master_Transmit(&hi2c1, TMP102_addr, buffer, 1, delay);
+	  status = HAL_I2C_Master_Transmit(&hi2c1, TMP102_addr, buffer, 1, HAL_MAX_DELAY);
 
 	  // Check status of transmission, if OK keep going, if not OK do nothing
 	  if (status == HAL_OK){
@@ -164,10 +178,10 @@ int main(void)
 
 			  // Format the temperature as a string
 			  char temp_str[50];
-			  int len = sprintf(temp_str, "Temperature: %.2f°C\r\n", temperature);
+			  sprintf(temp_str, "Temperature: %.2f°C\r\n", temperature);
 
 			  // Send the temperature data over USB
-			  CDC_Transmit_FS((uint8_t*)temp_str, len);
+			  CDC_Transmit_FS((uint8_t*)temp_str, strlen(temp_str));
 
 			  /** Check temperature
 			   	   * - if it's over 30 degrees, turn on LED
@@ -182,10 +196,16 @@ int main(void)
 
 		  } else {
 
+			  char status_str[50];
+			  sprintf(status_str, "Receive error: %d\r\n", status);
+			  CDC_Transmit_FS((uint8_t*)status_str, strlen(status_str));
 		  }
 
 	  } else {
 
+		  char status_str[50];
+		  sprintf(status_str, "Transmit error: %d\r\n", status);
+		  CDC_Transmit_FS((uint8_t*)status_str, strlen(status_str));
 	  }
 
 	  // Delay

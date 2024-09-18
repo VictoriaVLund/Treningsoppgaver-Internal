@@ -408,7 +408,7 @@ void StartGyroTask(void *argument)
 	  sprintf(gyro_str, "X: %d, Y: %d\r\n", x_val, y_val);
 	  CDC_Transmit_FS((uint8_t*)gyro_str, strlen(gyro_str));
 
-    osDelay(100);
+    osDelay(500);
   }
   /* USER CODE END 5 */
 }
@@ -456,7 +456,7 @@ void StartTempTask(void *argument)
 	  } else {
 
 	  }
-    osDelay(100);
+    osDelay(500);
   }
   /* USER CODE END StartTempTask */
 }
