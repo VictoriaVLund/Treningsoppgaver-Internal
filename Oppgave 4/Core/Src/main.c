@@ -78,8 +78,10 @@ uint8_t x_msb; // Variable to read the high byte into
 int16_t x_val; // Variable to combine high and low bytes into 16-bit value
 
 /* Y-axis variables */
+/*Read data method 1: Messy*/
 //uint8_t rOUT_Y_L_addr = 0xAA; // Address for the lower 8 bits of the Y-axis data + read operation
 //uint8_t rOUT_Y_H_addr = 0xAB; // Address for the upper 8 bits of the Y-axis data + read operation
+/*Read data method 2: Clean*/
 uint8_t OUT_Y_L_addr = 0x2A; // Address for the lower 8 bits of the Y-axis data
 uint8_t OUT_Y_H_addr = 0x2B; // Address for the upper 8 bits of the Y-axis data
 uint8_t y_lsb; // Variable to read the low byte into
@@ -136,46 +138,6 @@ int main(void)
 
 
   // Del 2 - Light up LEDs based on the direction the board is tipped
-
-//	/* CTRL Register variables */
-//	uint8_t CTRL_REG1_addr = 0x20; // CTRL_REG1 address
-//	uint8_t CTRL_REG1_val = 0x0F; // Value to write to CTRL_REG1 to configure gyroscope: set ODR to lowest and enable X, Y and Z-axes
-//
-//	/* SPI-CS variables */
-//	GPIO_TypeDef* CS_Port = GPIOE; // CS port
-//	uint16_t CS_Pin = GPIO_PIN_3; // CS pin
-//
-//	/* LED variables */
-//	GPIO_TypeDef* LED_Port = GPIOD; // LED port
-//	uint16_t gLED_Pin = GPIO_PIN_12; // Green LED pin
-//	uint16_t rLED_Pin = GPIO_PIN_14; // Red LED pin
-//	uint16_t bLED_Pin = GPIO_PIN_15; // Blue LED pin
-//	uint16_t oLED_Pin = GPIO_PIN_13; // Orange LED pin
-//
-//	/* SPI delay */
-//	uint32_t SPI_Delay = HAL_MAX_DELAY;
-//
-//	/* Threshold variable */
-//	uint16_t THRESHOLD = 5000;
-//
-///*Read data method 1: Messy*/
-//	/* X-axis variables */
-//	//uint8_t rOUT_X_L_addr = 0xA8; // Address for the lower 8 bits of the X-axis data + read operation
-//	//uint8_t rOUT_X_H_addr = 0xA9; // Address for the upper 8 bits of the X-axis data + read operation
-//	uint8_t OUT_X_L_addr = 0x28; // Address for the lower 8 bits of the X-axis data
-//	uint8_t OUT_X_H_addr = 0x29; // Address for the upper 8 bits of the X-axis data
-//	uint8_t x_lsb; // Variable to read the low byte into
-//	uint8_t x_msb; // Variable to read the high byte into
-//	int16_t x_val; // Variable to combine high and low bytes into 16-bit value
-//
-//	/* Y-axis variables */
-//	//uint8_t rOUT_Y_L_addr = 0xAA; // Address for the lower 8 bits of the Y-axis data + read operation
-//	//uint8_t rOUT_Y_H_addr = 0xAB; // Address for the upper 8 bits of the Y-axis data + read operation
-//	uint8_t OUT_Y_L_addr = 0x2A; // Address for the lower 8 bits of the Y-axis data
-//	uint8_t OUT_Y_H_addr = 0x2B; // Address for the upper 8 bits of the Y-axis data
-//	uint8_t y_lsb; // Variable to read the low byte into
-//	uint8_t y_msb; // Variable to read the high byte into
-//	int16_t y_val; // Variable to combine high and low bytes into 16-bit value
 
 	//uint8_t xy_reg_val[4] = {0};
 
@@ -288,6 +250,8 @@ int main(void)
 //	  HAL_SPI_Transmit(&hspi1, &rOUT_Y_H_addr, 1, SPI_Delay);
 //	  HAL_SPI_Receive(&hspi1, &y_msb, 1, SPI_Delay);
 //	  HAL_GPIO_WritePin(CS_Port, CS_Pin, GPIO_PIN_SET);
+
+   /*Read data method 2: Clean*/
 
 	  // Read data from x-axis
 	  x_lsb = SPI_Read_Register(OUT_X_L_addr);
