@@ -88,6 +88,8 @@ void StartBlueBlinkTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
+void ToggleLED (uint16_t pin_nr);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -263,6 +265,24 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void ToggleLED (uint16_t pin_nr)
+{
+	// Toggle an LED on and off 5 times
+	/* Without osMutexAcquire + osMutexRelease --> All four LEDs blink 5 times, at the same time */
+	/* With osMutexAcquire + osMutexRelease --> Only one LED will blink 5 times before the next one starts */
+	for (int i = 0; i < 5; ++i) {
+		osMutexAcquire(myMutex01Handle, osWaitForever);
+
+		HAL_GPIO_WritePin(GPIOD, pin_nr, GPIO_PIN_SET);
+		osDelay(500);
+
+		HAL_GPIO_WritePin(GPIOD, pin_nr, GPIO_PIN_RESET);
+		osDelay(500);
+
+		osMutexRelease(myMutex01Handle);
+	}
+}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartOrangeBlinkTask */
@@ -278,7 +298,8 @@ void StartOrangeBlinkTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  ToggleLED(ORANGE_LED_Pin);
+	  osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -296,7 +317,8 @@ void StartRedBlinkTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  ToggleLED(RED_LED_Pin);
+	  osDelay(100);
   }
   /* USER CODE END StartRedBlinkTask */
 }
@@ -314,7 +336,8 @@ void StartGreenBlinkTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  ToggleLED(GREEN_LED_Pin);
+	  osDelay(100);
   }
   /* USER CODE END StartGreenBlinkTask */
 }
@@ -332,7 +355,8 @@ void StartBlueBlinkTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  ToggleLED(BLUE_LED_Pin);
+	  osDelay(100);
   }
   /* USER CODE END StartBlueBlinkTask */
 }
