@@ -207,14 +207,14 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, GREEN_LED_Pin|ORANGE_LED_Pin|BLUE_LED_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : BLUE_LED_Pin */
-  GPIO_InitStruct.Pin = BLUE_LED_Pin;
+  /*Configure GPIO pins : GREEN_LED_Pin ORANGE_LED_Pin BLUE_LED_Pin */
+  GPIO_InitStruct.Pin = GREEN_LED_Pin|ORANGE_LED_Pin|BLUE_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BLUE_LED_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -234,10 +234,25 @@ static void MX_GPIO_Init(void)
 void StartProducerTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
+	/* This function is what should be added to the queue */
+
+	// 3 pieces of data to be added to the queue
+	uint32_t data1 = 1; // Green LED
+	uint32_t data2 = 3; // Orange LED
+	uint32_t data3 = 5; // Blue LED
+
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  // Put 3 messages in the queue
+	  osMessagePut(myQ1Handle, data1, osWaitForever);
+	  osDelay(1000);
+
+	  osMessagePut(myQ1Handle, data2, osWaitForever);
+	  osDelay(1000);
+
+	  osMessagePut(myQ1Handle, data3, osWaitForever);
+	  osDelay(1000);
   }
   /* USER CODE END 5 */
 }
@@ -252,10 +267,52 @@ void StartProducerTask(void const * argument)
 void StartConsumerTask(void const * argument)
 {
   /* USER CODE BEGIN StartConsumerTask */
+	/* This function is what should be done with the items in the queue */
+
+	// Declaring an osEvent
+	osEvent event;
+
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  // Retrieve message from the queue
+	  event = osMessageGet(myQ1Handle, osWaitForever);
+
+	  // If the event contains a message, blink the blue LED according to the # retrieved from the queue
+	  if (event.status == osEventMessage){
+		  uint16_t blink_count = event.value.v; // Get the value of the message
+
+		  /* Original task code */
+
+//		  while(blink_count--){
+//			  HAL_GPIO_TogglePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin);
+//			  osDelay(100);
+//		  }
+
+		  /* Own code, adding to functionality */
+		  if (event.value.v == 1){
+			  while(blink_count--){
+				  HAL_GPIO_TogglePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin);
+				  osDelay(100);
+				  HAL_GPIO_TogglePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin);
+				  osDelay(100);
+			  }
+		  } else if (event.value.v == 3){
+			  while(blink_count--){
+				  HAL_GPIO_TogglePin(ORANGE_LED_GPIO_Port, ORANGE_LED_Pin);
+				  osDelay(100);
+				  HAL_GPIO_TogglePin(ORANGE_LED_GPIO_Port, ORANGE_LED_Pin);
+				  osDelay(100);
+			  }
+		  } else if (event.value.v == 5){
+			  while(blink_count--){
+				  HAL_GPIO_TogglePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin);
+				  osDelay(100);
+				  HAL_GPIO_TogglePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin);
+				  osDelay(100);
+			  }
+		  }
+	  }
   }
   /* USER CODE END StartConsumerTask */
 }
