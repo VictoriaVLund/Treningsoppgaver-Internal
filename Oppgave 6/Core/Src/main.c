@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+uint8_t SPI_Read_Register(uint8_t reg_addr);
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -40,13 +41,58 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
+
+////////////////////////////////////////////////////////////////////////////////
+/* Base code taken from Oppgave 4 */
+////////////////////////////////////////////////////////////////////////////////
+
+// Del 1 - Test SPI communication
+
+const uint8_t r_WHO_AM_I = 0x0F| 0x80; // WHO_AM_I address + Read bit set
+uint8_t WHO_AM_I_value = 0xD3; // Expected WHO_AM_I value
+uint8_t received_Data; // Received data from SPI communication
+
+
+// Del 2 - Light up LEDs based on gyroscope values
+
+/* CTRL Register variables */
+uint8_t CTRL_REG1_addr = 0x20; // CTRL_REG1 address
+uint8_t CTRL_REG1_val = 0x0F; // Value to write to CTRL_REG1 to configure gyroscope: set ODR to lowest and enable X, Y and Z-axes
+
+/* SPI delay */
+uint32_t SPI_Delay = HAL_MAX_DELAY;
+
+/* Threshold variable */
+uint16_t THRESHOLD = 3000;
+
+/* X-axis variables */
+uint8_t OUT_X_L_addr = 0x28; // Address for the lower 8 bits of the X-axis data
+uint8_t OUT_X_H_addr = 0x29; // Address for the upper 8 bits of the X-axis data
+uint8_t x_lsb; // Variable to read the low byte into
+uint8_t x_msb; // Variable to read the high byte into
+int16_t x_val; // Variable to combine high and low bytes into 16-bit value
+
+/* Y-axis variables */
+uint8_t OUT_Y_L_addr = 0x2A; // Address for the lower 8 bits of the Y-axis data
+uint8_t OUT_Y_H_addr = 0x2B; // Address for the upper 8 bits of the Y-axis data
+uint8_t y_lsb; // Variable to read the low byte into
+uint8_t y_msb; // Variable to read the high byte into
+int16_t y_val; // Variable to combine high and low bytes into 16-bit value
+
+/* SPI_Read_Register variables */
+uint8_t reg_addr;
+uint8_t rx_data;
+uint8_t tx_data;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -84,7 +130,46 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+
+  // Del 1 - Test SPI communication
+
+	// Set CS low
+	HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_RESET);
+
+	// Transmit and Receive data from the WHO_AM_I register
+	HAL_SPI_TransmitReceive(&hspi1, &r_WHO_AM_I, &received_Data, 1, SPI_Delay);
+
+	// Set CS high
+	HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_SET);
+
+	// Check if received data is equal to the expected value from the WHO_AM_I register
+		  // If they are equal, turn on Green LED
+		  // If they are not equal, turn on the Red LED
+	if (received_Data == WHO_AM_I_value){
+
+	  // Turn on Green LED
+	  HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, GPIO_PIN_SET);
+
+	} else {
+
+	  // Turn on Red LED
+	  HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, GPIO_PIN_SET);
+	}
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  // DEL 2 - Light up LEDs based on the direction the board is tipped
+
+    /* Configure built-in gyroscope */
+
+    HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_RESET); // Set CS low
+    HAL_SPI_Transmit(&hspi1, &CTRL_REG1_addr, 1, SPI_Delay); // Send CTRL_REG1 address 0x20
+    HAL_SPI_Transmit(&hspi1, &CTRL_REG1_val, 1, SPI_Delay); // Send configure value 0x0F
+    HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_SET); // Set CS high
 
   /* USER CODE END 2 */
 
@@ -93,6 +178,48 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
+	  // DEL 2 - Light up LEDs based on the direction the board is tipped
+
+	  // Read data from x-axis
+	  x_lsb = SPI_Read_Register(OUT_X_L_addr);
+	  x_msb = SPI_Read_Register(OUT_X_H_addr);
+
+	  // Combine x_msb and x_lsb
+	  x_val = ((uint16_t) x_msb << 8) | ((uint16_t) x_lsb);
+
+	  // Read data from y-axis
+	  y_lsb = SPI_Read_Register(OUT_Y_L_addr);
+	  y_msb = SPI_Read_Register(OUT_Y_H_addr);
+
+	  // Combine y_msb and y_lsb
+	  y_val = ((uint16_t) y_msb << 8) | ((uint16_t) y_lsb);
+
+	 /* Update LEDs based on X- and Y-axis data */
+
+	  if (x_val > THRESHOLD){
+		  HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, GPIO_PIN_SET); // Turn on green LED if X is negative
+		  HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, GPIO_PIN_RESET); // Turn off red LED if X is negative
+	  } else if (x_val < -THRESHOLD){
+		  HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, GPIO_PIN_SET);
+	  } else {
+		  HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, GPIO_PIN_RESET);
+	  }
+
+	  if (y_val > THRESHOLD){
+		  HAL_GPIO_WritePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(ORANGE_LED_GPIO_Port, ORANGE_LED_Pin, GPIO_PIN_RESET);
+	  } else if (y_val < -THRESHOLD){
+		  HAL_GPIO_WritePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(ORANGE_LED_GPIO_Port, ORANGE_LED_Pin, GPIO_PIN_SET);
+	  } else {
+		  HAL_GPIO_WritePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(ORANGE_LED_GPIO_Port, ORANGE_LED_Pin, GPIO_PIN_RESET);
+	  }
+
+	  HAL_Delay(100); // Small delay for stability
 
     /* USER CODE BEGIN 3 */
   }
@@ -145,7 +272,98 @@ void SystemClock_Config(void)
   }
 }
 
+/**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+/* USER CODE BEGIN MX_GPIO_Init_1 */
+/* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOE_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, GREEN_LED_Pin|ORANGE_LED_Pin|RED_LED_Pin|BLUE_LED_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : CS_SPI_Pin */
+  GPIO_InitStruct.Pin = CS_SPI_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(CS_SPI_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : GREEN_LED_Pin ORANGE_LED_Pin RED_LED_Pin BLUE_LED_Pin */
+  GPIO_InitStruct.Pin = GREEN_LED_Pin|ORANGE_LED_Pin|RED_LED_Pin|BLUE_LED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+/* USER CODE BEGIN MX_GPIO_Init_2 */
+/* USER CODE END MX_GPIO_Init_2 */
+}
+
 /* USER CODE BEGIN 4 */
+
+uint8_t SPI_Read_Register(uint8_t reg_addr)
+{
+	rx_data = 0;
+	tx_data = reg_addr | 0x80; // Read from register
+
+	HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_RESET); // Set CS low
+	HAL_SPI_Transmit(&hspi1, &tx_data, 1, SPI_Delay); // Transmit register address
+	HAL_SPI_Receive(&hspi1, &rx_data, 1, SPI_Delay); // Receive data from register
+	HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_SET); // Set CS high
+
+	return rx_data;
+}
 
 /* USER CODE END 4 */
 
