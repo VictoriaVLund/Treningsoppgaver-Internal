@@ -18,7 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-uint8_t SPI_Read_Register(uint8_t reg_addr);
+#include "I3G4250D.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -51,41 +51,24 @@ SPI_HandleTypeDef hspi1;
 
 // Del 1 - Test SPI communication
 
-const uint8_t r_WHO_AM_I = 0x0F| 0x80; // WHO_AM_I address + Read bit set
 uint8_t WHO_AM_I_value = 0xD3; // Expected WHO_AM_I value
-uint8_t received_Data; // Received data from SPI communication
+uint8_t rx_WHO_AM_I_data; // Received data from SPI communication
 
 
 // Del 2 - Light up LEDs based on gyroscope values
-
-/* CTRL Register variables */
-uint8_t CTRL_REG1_addr = 0x20; // CTRL_REG1 address
-uint8_t CTRL_REG1_val = 0x0F; // Value to write to CTRL_REG1 to configure gyroscope: set ODR to lowest and enable X, Y and Z-axes
-
-/* SPI delay */
-uint32_t SPI_Delay = HAL_MAX_DELAY;
 
 /* Threshold variable */
 uint16_t THRESHOLD = 3000;
 
 /* X-axis variables */
-uint8_t OUT_X_L_addr = 0x28; // Address for the lower 8 bits of the X-axis data
-uint8_t OUT_X_H_addr = 0x29; // Address for the upper 8 bits of the X-axis data
 uint8_t x_lsb; // Variable to read the low byte into
 uint8_t x_msb; // Variable to read the high byte into
 int16_t x_val; // Variable to combine high and low bytes into 16-bit value
 
 /* Y-axis variables */
-uint8_t OUT_Y_L_addr = 0x2A; // Address for the lower 8 bits of the Y-axis data
-uint8_t OUT_Y_H_addr = 0x2B; // Address for the upper 8 bits of the Y-axis data
 uint8_t y_lsb; // Variable to read the low byte into
 uint8_t y_msb; // Variable to read the high byte into
 int16_t y_val; // Variable to combine high and low bytes into 16-bit value
-
-/* SPI_Read_Register variables */
-uint8_t reg_addr;
-uint8_t rx_data;
-uint8_t tx_data;
 
 /* USER CODE END PV */
 
@@ -136,19 +119,13 @@ int main(void)
 
   // Del 1 - Test SPI communication
 
-	// Set CS low
-	HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_RESET);
-
-	// Transmit and Receive data from the WHO_AM_I register
-	HAL_SPI_TransmitReceive(&hspi1, &r_WHO_AM_I, &received_Data, 1, SPI_Delay);
-
-	// Set CS high
-	HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_SET);
+  	// Read WHO_AM_I register
+	rx_WHO_AM_I_data = I3G4250D_ReadReg(I3G4250D_WHO_AM_I);
 
 	// Check if received data is equal to the expected value from the WHO_AM_I register
 		  // If they are equal, turn on Green LED
 		  // If they are not equal, turn on the Red LED
-	if (received_Data == WHO_AM_I_value){
+	if (rx_WHO_AM_I_data == WHO_AM_I_value){
 
 	  // Turn on Green LED
 	  HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, GPIO_PIN_SET);
@@ -166,10 +143,13 @@ int main(void)
 
     /* Configure built-in gyroscope */
 
-    HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_RESET); // Set CS low
-    HAL_SPI_Transmit(&hspi1, &CTRL_REG1_addr, 1, SPI_Delay); // Send CTRL_REG1 address 0x20
-    HAL_SPI_Transmit(&hspi1, &CTRL_REG1_val, 1, SPI_Delay); // Send configure value 0x0F
-    HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_SET); // Set CS high
+    I3G4250D_InitTypeDef gyroConfig;
+
+    gyroConfig.dataRate = I3G4250D_ODR_100HZ_FC_12_5;
+    gyroConfig.powerDown = I3G4250D_PD_DISABLE;
+    gyroConfig.axesEnable = I3G4250D_ENABLE_XYZ;
+
+    I3G4250D_CTRL_REG1_Init(&gyroConfig);
 
   /* USER CODE END 2 */
 
@@ -182,15 +162,15 @@ int main(void)
 	  // DEL 2 - Light up LEDs based on the direction the board is tipped
 
 	  // Read data from x-axis
-	  x_lsb = SPI_Read_Register(OUT_X_L_addr);
-	  x_msb = SPI_Read_Register(OUT_X_H_addr);
+	  x_lsb = I3G4250D_ReadReg(I3G4250D_OUT_X_L);
+	  x_msb = I3G4250D_ReadReg(I3G4250D_OUT_X_H);
 
 	  // Combine x_msb and x_lsb
 	  x_val = ((uint16_t) x_msb << 8) | ((uint16_t) x_lsb);
 
 	  // Read data from y-axis
-	  y_lsb = SPI_Read_Register(OUT_Y_L_addr);
-	  y_msb = SPI_Read_Register(OUT_Y_H_addr);
+	  y_lsb = I3G4250D_ReadReg(I3G4250D_OUT_Y_L);
+	  y_msb = I3G4250D_ReadReg(I3G4250D_OUT_Y_H);
 
 	  // Combine y_msb and y_lsb
 	  y_val = ((uint16_t) y_msb << 8) | ((uint16_t) y_lsb);
@@ -351,19 +331,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-uint8_t SPI_Read_Register(uint8_t reg_addr)
-{
-	rx_data = 0;
-	tx_data = reg_addr | 0x80; // Read from register
-
-	HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_RESET); // Set CS low
-	HAL_SPI_Transmit(&hspi1, &tx_data, 1, SPI_Delay); // Transmit register address
-	HAL_SPI_Receive(&hspi1, &rx_data, 1, SPI_Delay); // Receive data from register
-	HAL_GPIO_WritePin(CS_SPI_GPIO_Port, CS_SPI_Pin, GPIO_PIN_SET); // Set CS high
-
-	return rx_data;
-}
 
 /* USER CODE END 4 */
 
