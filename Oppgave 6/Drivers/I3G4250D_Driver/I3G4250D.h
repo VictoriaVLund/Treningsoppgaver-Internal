@@ -27,7 +27,27 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
 
+/**
+  * @brief I3G4250D gyroscope Init structure definition
+  */
+typedef struct
+{
+	uint8_t dataRate;		/*!< Specifies the Output Data Rate selection.
+                           	   	 This parameter can be any value of @ref I3G4250D_ODR_define */
+
+	uint8_t powerDown;		/*!< Specifies the power status of the gyroscope.
+                           	   	 This parameter can be any value of @ref I3G4250D_powerDown_define */
+
+	uint8_t axesEnable;		/*!< Specifies the axes' enabled/disabled.
+                           	   	 This parameter can be any value of @ref I3G4250D_axes_define */
+
+} I3G4250D_InitTypeDef;
+
 /* Registers (p. 28) ---------------------------------------------------------*/
+
+/** @defgroup I3G4250D_address_define I3G4250D address define
+  * @{
+  */
 /* Relevant to task */
 #define I3G4250D_WHO_AM_I					0x0F
 #define I3G4250D_CTRL_REG1					0x20
@@ -57,9 +77,15 @@
 #define I3G4250D_INT1_THS_ZH				0x36
 #define I3G4250D_INT1_THS_ZL				0x37
 #define I3G4250D_INT1_DURATION				0x38
+/**
+  * @}
+  */
 
 /* CTRL_REG1 register values (p. 30-31) --------------------------------------*/
 
+/** @defgroup I3G4250D_ODR_define I3G4250D ODR define
+  * @{
+  */
 #define I3G4250D_ODR_100HZ_FC_12_5			0x00
 #define I3G4250D_ODR_100HZ_FC_25			0x10
 #define I3G4250D_ODR_100HZ_FC_25			0x20
@@ -76,15 +102,40 @@
 #define I3G4250D_ODR_800HZ_FC_35			0xD0
 #define I3G4250D_ODR_800HZ_FC_50			0xE0
 #define I3G4250D_ODR_800HZ_FC_110			0xF0
+/**
+  * @}
+  */
 
-#define I3G4250D_PD_ENABLE					0x00
-#define I3G4250D_PD_DISABLE					0x08
+/** @defgroup I3G4250D_powerDown_define I3G4250D powerDown define
+  * @{
+  */
+#define I3G4250D_PD_ENABLE					0x00 // Power-down
+#define I3G4250D_PD_DISABLE					0x08 // Normal/sleep mode depending on value of X, Y, and Z
+/**
+  * @}
+  */
 
-#define I3G4250D_ENABLE_X
-#define I3G4250D_ENABLE_Y
-#define I3G4250D_ENABLE_Z
-#define I3G4250D_DISABLE_X
-#define I3G4250D_DISABLE_Y
-#define I3G4250D_DISABLE_Z
+/** @defgroup I3G4250D_axes_define I3G4250D axes define
+  * @{
+  */
+#define I3G4250D_ENABLE_X					0x01
+#define I3G4250D_ENABLE_Y					0x02
+#define I3G4250D_ENABLE_Z					0x03
+#define I3G4250D_DISABLE_X					0x00
+#define I3G4250D_DISABLE_Y					0x00
+#define I3G4250D_DISABLE_Z					0x00
+
+#define I3G4250D_ENABLE_XYZ					(I3G4250D_ENABLE_X | I3G4250D_ENABLE_Y | I3G4250D_ENABLE_Z)
+#define I3G4250D_DISABLE_XYZ				(I3G4250D_DISABLE_X | I3G4250D_DISABLE_Y | I3G4250D_DISABLE_Z)
+/**
+  * @}
+  */
+
+/* Initialization function ---------------------------------------------------*/
+void I3G4250D_Init(I3G4250D_InitTypeDef *config);
+
+/* IO operation functions ----------------------------------------------------*/
+uint8_t I3G4250D_ReadReg(uint8_t reg);
+void I3G4250D_WriteReg(uint8_t reg, uint8_t data);
 
 #endif /* I3G4250D_DRIVER_I3G4250D_H_ */
