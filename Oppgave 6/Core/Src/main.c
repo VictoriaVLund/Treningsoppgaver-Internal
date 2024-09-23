@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "I3G4250D.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -125,12 +127,9 @@ int main(void)
 		  // If they are equal, turn on Green LED
 		  // If they are not equal, turn on the Red LED
 	if (rx_WHO_AM_I_data == WHO_AM_I_value){
-
-	  printf("WHO_AM_I was read correctly");
-
+		HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, GPIO_PIN_SET);
 	} else {
-
-	  printf("WHO_AM_I could not be read");
+		HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, GPIO_PIN_SET);
 	}
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -154,6 +153,46 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+	  // Read data from x-axis
+	  x_lsb = I3G4250D_ReadReg(I3G4250D_OUT_X_L);
+	  x_msb = I3G4250D_ReadReg(I3G4250D_OUT_X_H);
+
+	  // Combine x_msb and x_lsb
+	  x_val = ((uint16_t) x_msb << 8) | ((uint16_t) x_lsb);
+
+	  // Read data from y-axis
+	  y_lsb = I3G4250D_ReadReg(I3G4250D_OUT_Y_L);
+	  y_msb = I3G4250D_ReadReg(I3G4250D_OUT_Y_H);
+
+	  // Combine y_msb and y_lsb
+	  y_val = ((uint16_t) y_msb << 8) | ((uint16_t) y_lsb);
+
+   /* Update LEDs based on X- and Y-axis data */
+
+	  if (x_val > THRESHOLD){
+		  HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, GPIO_PIN_SET); // Turn on green LED if X is negative
+		  HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, GPIO_PIN_RESET); // Turn off red LED if X is negative
+	  } else if (x_val < -THRESHOLD){
+		  HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, GPIO_PIN_SET);
+	  } else {
+		  HAL_GPIO_WritePin(GREEN_LED_GPIO_Port, GREEN_LED_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(RED_LED_GPIO_Port, RED_LED_Pin, GPIO_PIN_RESET);
+	  }
+
+	  if (y_val > THRESHOLD){
+		  HAL_GPIO_WritePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(ORANGE_LED_GPIO_Port, ORANGE_LED_Pin, GPIO_PIN_RESET);
+	  } else if (y_val < -THRESHOLD){
+		  HAL_GPIO_WritePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(ORANGE_LED_GPIO_Port, ORANGE_LED_Pin, GPIO_PIN_SET);
+	  } else {
+		  HAL_GPIO_WritePin(BLUE_LED_GPIO_Port, BLUE_LED_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(ORANGE_LED_GPIO_Port, ORANGE_LED_Pin, GPIO_PIN_RESET);
+	  }
+
+	  HAL_Delay(100); // Small delay for stability
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
