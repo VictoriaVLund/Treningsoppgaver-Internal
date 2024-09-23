@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "MY_CS43L22.h"
+#include <math.h>
+void gen_sine_wave(float freq);
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,6 +49,10 @@ DMA_HandleTypeDef hdma_spi3_tx;
 
 /* USER CODE BEGIN PV */
 
+#define PI 			3.14159f
+#define F_OUT		1000.0f
+#define F_SAMPLE	48000.0f
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -61,6 +67,11 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+float sinVal;
+float sample_dt;
+uint16_t sample_N;
+int16_t audioData[110];
 
 /* USER CODE END 0 */
 
@@ -97,6 +108,20 @@ int main(void)
   MX_I2S3_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
+
+  CS43_Init(hi2c1, MODE_I2S);
+  CS43_SetVolume(5);
+  CS43_Enable_RightLeft(CS43_RIGHT);
+  CS43_Start();
+
+  /**** Call gen_sine_wave function ****/
+  gen_sine_wave(F_OUT);
+
+  /**** Transmit data using DMA ****/
+  /* Mono */
+  HAL_I2S_Transmit_DMA(&hi2s3, (uint16_t *)audioData, sample_N);
+  /* Stereo */
+  //HAL_I2S_Transmit_DMA(&hi2s3, (uint16_t *)audioData, sample_N*2);
 
   /* USER CODE END 2 */
 
@@ -273,6 +298,23 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void gen_sine_wave(float freq){
+	sample_N = F_SAMPLE/freq;
+	sample_dt = freq/F_SAMPLE;
+
+	for (uint16_t i = 0; i < sample_N; ++i) {
+		sinVal = sinf(i*2*PI*sample_dt);
+		/* Mono test #1 */
+		audioData[i] = (sinVal )*5000;
+		/* Mono test #2 */
+		//audioData[i*2] = (sinVal )*5000;
+		//audioData[i*2 + 1] = 0;
+		/* Stereo */
+		//audioData[i*2] = (sinVal )*5000;
+		//audioData[i*2 + 1] = (sinVal )*5000;
+	}
+}
 
 /* USER CODE END 4 */
 
